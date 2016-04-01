@@ -3,7 +3,6 @@ import cv2
 import numpy as np
 import argparse
 
-
 class CamCalibrate(object):
 
     def __init__(self, height, width, scale,
@@ -13,11 +12,6 @@ class CamCalibrate(object):
         except ValueError:
             print '\nConversion Error, probably invalid device ID\n'
             raise
-
-         ## Stereo Camera object declaration
-        self.cam_r = cv2.VideoCapture(rc)
-        self.cam_l = cv2.VideoCapture(lc)
-
         try:
             ## Cheestboard size
             self.cheesboard_size = (int(width), int(height))
@@ -25,6 +19,10 @@ class CamCalibrate(object):
         except ValueError:
             print '\nConversion Error, wrong height and width arg!\n'
             raise
+
+        ## Stereo Camera object declaration
+        self.cam_r = cv2.VideoCapture(rc)
+        self.cam_l = cv2.VideoCapture(lc)
 
         # termination criteria
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -104,31 +102,7 @@ class CamCalibrate(object):
                 self.img_counter = self.img_counter + 1
                 cheesboard_found = True
 
-            cv2.imshow('img_left',frame_l)
-            cv2.imshow('img_right',frame_r)
-            k = cv2.waitKey(5) & 0xFF
-
-            ## Founded?, What next
-            if cheesboard_found:
-                while user_choice not in possib_cho:
-                    user_choice =  raw_input("Found: %d , continue (Y/N) : " % (self.img_counter,))
-                cheesboard_found = False
-
-            ## If user chose No
-            if user_choice == possib_cho[0]:
-                print "Using calculated parameters to remove disortion..."
-
-                ## Calculating disortion params
-                ret_l, mtx_l, dist_l, rvecs_l, tvecs_l = cv2.calibrateCamera(self.objpoints,
-                                                                             self.imgpoints_l,
-                                                                             gray_l.shape[::-1],
-                                                                             None,None)
-                ret_r, mtx_r, dist_r, rvecs_r, tvecs_r = cv2.calibrateCamera(self.objpoints,
-                                                                             self.imgpoints_r,
-                                                                             gray_r.shape[::-1],
-                                                                             None,None)
-                newcameramtx_l, roi_l=cv2.getOptimalNewCameraMatrix(mtx_l,dist_l,(cols,rows),1,(cols,rows))
-                newcameramtx_r, roi_r=cv2.getOptimalNewCameraMatrix(mtx_r,dist_r,(cols,rows),1,(cols,rows))
+            elif undisorted:
 
                 # undistort
                 frame_l = cv2.undistort(frame_l, mtx_l, dist_l, None, newcameramtx_l)
@@ -139,11 +113,51 @@ class CamCalibrate(object):
                 x_r,y_r,w_r,h_r = roi_r
                 frame_l = frame_l[y_l:y_l+h_l, x_l:x_l+w_l]
                 frame_r = frame_r[y_r:y_r+h_r, x_r:x_r+w_r]
-                undisorted = True
+
+
+            ## show image
+            cv2.imshow('img_left',frame_l)
+            cv2.imshow('img_right',frame_r)
+            k = cv2.waitKey(5) & 0xFF
+
+            ## Founded?, What next
+            if cheesboard_found:
+                while user_choice not in possib_cho:
+                    user_choice =  raw_input("Found: %d , continue (Y/N) : " % (self.img_counter,))
+                cheesboard_found = False
+
+                ## If user chose No
+                if user_choice == possib_cho[0]:
+                    print "Using calculated parameters to remove disortion..."
+
+                    ## Calculating disortion params
+                    ret_l, mtx_l, dist_l, rvecs_l, tvecs_l = cv2.calibrateCamera(self.objpoints,
+                                                                                 self.imgpoints_l,
+                                                                                 gray_l.shape[::-1],
+                                                                                 None,None)
+                    ret_r, mtx_r, dist_r, rvecs_r, tvecs_r = cv2.calibrateCamera(self.objpoints,
+                                                                                 self.imgpoints_r,
+                                                                                 gray_r.shape[::-1],
+                                                                                None,None)
+                    ## Save result
+                    np.savez(
+                            "disortion_params.npz", mtx_l=mtx_l, mtx_r=mtx_r, dist_l=dist_l,
+                             dist_r=dist_r, rvecs_l=rvecs_l, rvecs_r=rvecs_r, tvecs_l=tvecs_l,
+                             tvecs_r=tvecs_r
+                             )
+
+                    ## find new camera and remove translation params
+                    dist_l = np.array(dist_l[0])
+                    dist_r = np.array(dist_r[0])
+                    dist_r[2] = 0; dist_r[3] = 0
+                    dist_l[2] = 0; dist_l[3] = 0
+                    dist_l[-1] = 0; dist_l[-1] = 0
+                    dist_r[-1] = 0; dist_r[-1] = 0
+                    newcameramtx_l, roi_l=cv2.getOptimalNewCameraMatrix(mtx_l,dist_l,(cols,rows),1,(cols,rows))
+                    newcameramtx_r, roi_r=cv2.getOptimalNewCameraMatrix(mtx_r,dist_r,(cols,rows),1,(cols,rows))
+                    undisorted = True
                 user_choice = ""
 
-            elif user_choice == possib_cho[1]:
-                user_choice = ""
             if k == 27:
                 break
 
@@ -168,8 +182,8 @@ def main():
     parser.add_argument('-s', '--scale', dest='scale', action='store', default="2.3")
 
     ## Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video2")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
 
     args = parser.parse_args()
 
