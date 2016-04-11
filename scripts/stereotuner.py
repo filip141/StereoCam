@@ -98,20 +98,22 @@ class StereoSGBMTuner(object):
         return (disp-min_disp)/num_disp
 
     def start(self):
+
+        # Load calibration parameters
+        maps = self.load_params()
+
         while(1):
 
-            # Take each frame
-            _, frame_l = self.cam_l.read()
-            _, frame_r = self.cam_r.read()
+            # Read single frame from camera
+            for i in range(0,5):
+                _, frame_l = self.cam_l.read()
+                _, frame_r = self.cam_r.read()
 
-            ## Frame sizes
+            # Frame sizes
             rows,cols,dim = frame_l.shape
 
             # Rotate 90 degrees
             frames = self.rotate90((frame_l, frame_r))
-
-            # Load calibration parameters
-            maps = self.load_params()
 
             # Convert type and remap
             rect_frames = [0,0]

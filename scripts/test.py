@@ -54,9 +54,10 @@ cam_sources = [0,1]
 
 while(1):
 
-    # Take each frame
-    _, frame_l = cap1.read()
-    _, frame_r = cap2.read()
+
+    for i in range(0,5):
+        _, frame_l = cap1.read()
+        _, frame_r = cap2.read()
 
     ## Frame sizes
     rows,cols,dim = frame_l.shape
@@ -78,28 +79,17 @@ while(1):
     frame_r = rect_frames[1]
 
     # disparity range is tuned for 'aloe' image pair
-    window_size = win_size
-    min_disp = 0
-    num_disp = 112-min_disp
-    stereo = cv2.StereoSGBM_create(minDisparity = min_disp,
-        preFilterCap = prefilcap,
-        numDisparities = num_disp,
-        blockSize = window_size,
-        uniquenessRatio = uniq,
-        speckleWindowSize = sws,
-        speckleRange = sr*16,
-        disp12MaxDiff = dmd,
-        P1 = 8*3*window_size**2,
-        P2 = 32*3*window_size**2,
-        # fullDP = False
-    )
-    frame_l = cv2.cvtColor(frame_l, cv2.COLOR_BGR2GRAY)
-    frame_r = cv2.cvtColor(frame_r, cv2.COLOR_BGR2GRAY)
+    stereo = cv2.StereoBM_create(numDisparities=32, blockSize=5)
+    frame_l = cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY)
+    frame_r = cv2.cvtColor(frames[1], cv2.COLOR_BGR2GRAY)
     disp = stereo.compute(frame_l, frame_r).astype(np.float32) / 16.0
+    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+    # disparity_map = cv2.morphologyEx(disparity_map, cv2.MORPH_CLOSE, kernel)
 
+    cv2.imshow("disparity",disp)
     cv2.imshow('frame_left',frame_l)
     cv2.imshow('frame_right',frame_r)
-    cv2.imshow('disparity',(disp-min_disp)/num_disp)
+
     k = cv2.waitKey(5) & 0xFF
     if k == 27:
         break
