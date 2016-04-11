@@ -4,9 +4,13 @@ import numpy as np
 import argparse
 
 class CamCalibrate(object):
+    '''
+        Python class contains methods to calibrate stereo
+         camera by taking pictures of cheesboard shape in diferent positions
+    '''
 
     def __init__(self, height, width, scale,
-                 lcamera, rcamera):
+                 lcamera, rcamera, lowres):
         try:
             lc, rc = [int(lcamera[-1]), int(rcamera[-1])]
         except ValueError:
@@ -20,9 +24,20 @@ class CamCalibrate(object):
             print '\nConversion Error, wrong height and width arg!\n'
             raise
 
+        ## list of owned cameras
+        self.cam_sources = [0,1]
+        self.lowres = lowres
+
         ## Stereo Camera object declaration
         self.cam_r = cv2.VideoCapture(rc)
         self.cam_l = cv2.VideoCapture(lc)
+
+        ## For lack off usb bandwidth
+        if lowres:
+            self.cam_r.set(3, 320)
+            self.cam_r.set(4, 240)
+            self.cam_l.set(3, 320)
+            self.cam_l.set(4, 240)
 
         # termination criteria
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -32,6 +47,13 @@ class CamCalibrate(object):
         self.imgpoints_r = []   ## Right Camera
         self.imgpoints_l = []   ## Left Camera
         self.img_counter = 0
+
+    ## Check CV version
+    def isOpen3(self):
+        if cv2.__version__.startswith("3."):
+            return True
+        else:
+            return False
 
     ## Calibrate camera
     def calibrate(self):
@@ -52,19 +74,19 @@ class CamCalibrate(object):
 
         while True:
 
-            ## Read single frame from camera
+            # Read single frame from camera
             for i in range(0,5):
                 _, frame_l = self.cam_l.read()
                 _, frame_r = self.cam_r.read()
 
-            ## Frame sizes
+            # Frame sizes
             rows,cols,dim = frame_l.shape
 
             M = cv2.getRotationMatrix2D((cols/2,rows/2),-90,1)
             frame_l = cv2.warpAffine(frame_l,M,(cols,rows))
             frame_r = cv2.warpAffine(frame_r,M,(cols,rows))
 
-            ## Convert to grayscale
+            # Convert to grayscale
             gray_l = cv2.cvtColor(frame_l,cv2.COLOR_BGR2GRAY)
             gray_r = cv2.cvtColor(frame_r,cv2.COLOR_BGR2GRAY)
 
@@ -74,7 +96,7 @@ class CamCalibrate(object):
             ret_r, corners_r = cv2.findChessboardCorners(gray_r,
                                                      self.cheesboard_size, None)
 
-            ## If cheesboard corners found
+            # If chessboard corners found
             if ret_l and ret_r and not undisorted:
 
                 print "Left Camera: Cheesboard Found"
@@ -85,76 +107,128 @@ class CamCalibrate(object):
                 cv2.cornerSubPix(gray_l, corners_l,(5, 5),(-1,-1), self.criteria)
                 cv2.cornerSubPix(gray_r, corners_r,(5, 5),(-1,-1), self.criteria)
 
-                ## Add image points to buffer
+                # Add image points to buffer
                 self.imgpoints_l.append(corners_l)
                 self.imgpoints_r.append(corners_r)
 
-                ## Draw and display the corners
+                # Draw and display the corners
                 cv2.drawChessboardCorners(frame_l, self.cheesboard_size, corners_l, ret_l)
                 cv2.drawChessboardCorners(frame_r, self.cheesboard_size, corners_r, ret_r)
 
-                ## Put text on image
-                cv2.putText(frame_l,"Found!!!", (100,rows/2), cv2.FONT_HERSHEY_SIMPLEX,
-                            4,(255,255,255),5, 1)
-                cv2.putText(frame_r,"Found!!!", (100,rows/2), cv2.FONT_HERSHEY_SIMPLEX,
-                            4,(255,255,255),5, 1)
+                if self.lowres:
+
+                    # Put text on image
+                    cv2.putText(frame_l,"Found!!!", (100,rows/2), cv2.FONT_HERSHEY_SIMPLEX,
+                                2,(255,255,255),5, 1)
+                    cv2.putText(frame_r,"Found!!!", (100,rows/2), cv2.FONT_HERSHEY_SIMPLEX,
+                                2,(255,255,255),5, 1)
+                else:
+                    # Put text on image
+                    cv2.putText(frame_l,"Found!!!", (100,rows/2), cv2.FONT_HERSHEY_SIMPLEX,
+                                4,(255,255,255),5, 1)
+                    cv2.putText(frame_r,"Found!!!", (100,rows/2), cv2.FONT_HERSHEY_SIMPLEX,
+                                4,(255,255,255),5, 1)
+
 
                 self.img_counter = self.img_counter + 1
                 cheesboard_found = True
 
             elif undisorted:
+                frames = [frame_l, frame_r]
+                maps = [left_maps, right_maps]
+                rect_frames = [0,0]
+                for src in self.cam_sources:
+                        rect_frames[src] = cv2.remap(frames[src], maps[src][0], maps[src][1], cv2.INTER_LANCZOS4)
 
-                # undistort
-                frame_l = cv2.undistort(frame_l, mtx_l, dist_l, None, newcameramtx_l)
-                frame_r = cv2.undistort(frame_r, mtx_r, dist_r, None, newcameramtx_r)
-
-                # crop the image
-                x_l,y_l,w_l,h_l = roi_l
-                x_r,y_r,w_r,h_r = roi_r
-                frame_l = frame_l[y_l:y_l+h_l, x_l:x_l+w_l]
-                frame_r = frame_r[y_r:y_r+h_r, x_r:x_r+w_r]
+                # Undistorted images
+                frame_l = rect_frames[0]
+                frame_r = rect_frames[1]
 
 
-            ## show image
+            # show image
             cv2.imshow('img_left',frame_l)
             cv2.imshow('img_right',frame_r)
             k = cv2.waitKey(5) & 0xFF
 
-            ## Founded?, What next
+            # Founded?, What next
             if cheesboard_found:
                 while user_choice not in possib_cho:
                     user_choice =  raw_input("Found: %d , continue (Y/N) : " % (self.img_counter,))
                 cheesboard_found = False
 
-                ## If user chose No
+                # If user chose No
                 if user_choice == possib_cho[0]:
                     print "Using calculated parameters to remove disortion..."
 
-                    ## Calculating disortion params
-                    ret_l, mtx_l, dist_l, rvecs_l, tvecs_l = cv2.calibrateCamera(self.objpoints,
-                                                                                 self.imgpoints_l,
-                                                                                 gray_l.shape[::-1],
-                                                                                 None,None)
-                    ret_r, mtx_r, dist_r, rvecs_r, tvecs_r = cv2.calibrateCamera(self.objpoints,
-                                                                                 self.imgpoints_r,
-                                                                                 gray_r.shape[::-1],
-                                                                                None,None)
+                    if not self.isOpen3():
+                        # Calculating disortion params for stereo camera
+                        ret_val,camera_mat_l, dist_l, camera_mat_r, dist_r, R, T, E, F = cv2.stereoCalibrate(
+                                self.objpoints, self.imgpoints_l,
+                                self.imgpoints_r, gray_l.shape[::-1]
+                        )
+
+                        # distortion params
+                        dist = [dist_l, dist_r]
+
+                        # Remove translation
+                        for src in self.cam_sources:
+                            dist[src][0][-1] = 0.0
+                    else:
+                        # Calculating disortion params for each camera
+                        ret_l, mtx_l, dist_l, rvecs_l, tvecs_l = cv2.calibrateCamera(self.objpoints,
+                                                                                     self.imgpoints_l,
+                                                                                     gray_l.shape[::-1],
+                                                                                     None,None)
+                        ret_r, mtx_r, dist_r, rvecs_r, tvecs_r = cv2.calibrateCamera(self.objpoints,
+                                                                                     self.imgpoints_r,
+                                                                                     gray_r.shape[::-1],
+                                                                                    None,None)
+
+                        print "Calibration Error for left, right camera : " + str(ret_l) + ", " + str(ret_r)
+
+                        # distortion params
+                        dist = [dist_l, dist_r]
+
+                        # Remove translation
+                        for src in self.cam_sources:
+                            dist[src][0][-1] = 0.0
+
+                        ## find new camera and remove translation params
+                        camera_mat_l, roi_l=cv2.getOptimalNewCameraMatrix(mtx_l,dist_l,(cols,rows),1,(cols,rows))
+                        camera_mat_r, roi_r=cv2.getOptimalNewCameraMatrix(mtx_r,dist_r,(cols,rows),1,(cols,rows))
+
+                        stereorms, mtx_l, dist_l, mtx_r,\
+                        dist_r, R, T, E, F = cv2.stereoCalibrate(
+                                objectPoints=self.objpoints, imagePoints1=self.imgpoints_l,
+                                imagePoints2=self.imgpoints_r, cameraMatrix1=camera_mat_l,
+                                distCoeffs1=dist_l, cameraMatrix2=camera_mat_r,
+                                distCoeffs2=dist_r, imageSize=gray_l.shape[::-1],
+                                flags=(cv2.CALIB_FIX_INTRINSIC | cv2.CALIB_RATIONAL_MODEL)
+                                )
+                        print "Calibration Error for both cameras : " + str(stereorms)
+
+                        # camera matrixes
+                        cam_mats = [camera_mat_l, camera_mat_r]
+
+                        # Crop option
+                        rectify_scale = 0
+
+                        # Rectification
+                        R1, R2, P1, P2, Q, roi1, roi2 = cv2.stereoRectify(
+                                camera_mat_l, dist_l,
+                                camera_mat_r, dist_r,
+                                gray_l.shape[::-1], R, T, alpha = rectify_scale
+                        )
+                        left_maps = cv2.initUndistortRectifyMap(camera_mat_l, dist_l, R1, P1, gray_l.shape[::-1], cv2.CV_16SC2)
+                        right_maps = cv2.initUndistortRectifyMap(camera_mat_r, dist_r, R2, P2, gray_l.shape[::-1], cv2.CV_16SC2)
+
                     ## Save result
                     np.savez(
-                            "disortion_params.npz", mtx_l=mtx_l, mtx_r=mtx_r, dist_l=dist_l,
-                             dist_r=dist_r, rvecs_l=rvecs_l, rvecs_r=rvecs_r, tvecs_l=tvecs_l,
-                             tvecs_r=tvecs_r
+                            "disortion_params.npz", camera_mat_l=camera_mat_l, camera_mat_r=camera_mat_r, dist_l=dist_l,
+                             dist_r=dist_r, R=R, T=T, E=E,
+                             F=F, left_maps=left_maps, right_maps=right_maps
                              )
 
-                    ## find new camera and remove translation params
-                    dist_l = np.array(dist_l[0])
-                    dist_r = np.array(dist_r[0])
-                    dist_r[2] = 0; dist_r[3] = 0
-                    dist_l[2] = 0; dist_l[3] = 0
-                    dist_l[-1] = 0; dist_l[-1] = 0
-                    dist_r[-1] = 0; dist_r[-1] = 0
-                    newcameramtx_l, roi_l=cv2.getOptimalNewCameraMatrix(mtx_l,dist_l,(cols,rows),1,(cols,rows))
-                    newcameramtx_r, roi_r=cv2.getOptimalNewCameraMatrix(mtx_r,dist_r,(cols,rows),1,(cols,rows))
                     undisorted = True
                 user_choice = ""
 
@@ -180,16 +254,17 @@ def main():
     parser.add_argument('-ch', '--height', dest='height', action='store', default="6")
     parser.add_argument('-cw', '--width', dest='width', action='store', default="9")
     parser.add_argument('-s', '--scale', dest='scale', action='store', default="2.3")
+    parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     ## Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video0")
 
     args = parser.parse_args()
 
     ## Calibrate camera
     cc = CamCalibrate(args.height, args.width, args.scale,
-                      args.lcamera, args.rcamera)
+                      args.lcamera, args.rcamera, args.lowres)
     cc.calibrate()
 
 if __name__ == '__main__':
