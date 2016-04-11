@@ -1,16 +1,18 @@
 import cv2
 import argparse
+import threading
 import numpy as np
 
 CAMERA_WIDTH_PARAM = 3
 CAMERA_HEIGHT_PARAM = 4
 
-class StereoSGBMTuner(object):
+class StereoSGBMTuner(threading.Thread):
     '''
     StereoTuner for stereoSGBM OpenCV method
     '''
 
     def __init__(self, lcamera, rcamera, low_res):
+        threading.Thread.__init__(self)
         try:
             lc, rc = [int(lcamera[-1]), int(rcamera[-1])]
         except ValueError:
@@ -20,6 +22,7 @@ class StereoSGBMTuner(object):
         # list of owned cameras
         self.cam_sources = [0,1]
         self.low_res = low_res
+        self.params_loaded = False
 
         # trackbar params
         self.window_size = 0
@@ -41,6 +44,29 @@ class StereoSGBMTuner(object):
             self.cam_l.set(CAMERA_HEIGHT_PARAM, 240)
 
         self.init_trackbar()
+        self.start()
+
+    def run(self):
+        aval = ['Y', 'N']
+        user_str = ''
+        # Show message after loading params
+        while not self.params_loaded:
+            pass
+
+        # Show again when typed wrong cmd
+        while user_str not in aval:
+            user_str = raw_input("Save ? ( Y/N )")
+        if user_str == aval[0]:
+            print "Parameters Saved ! Congratz"
+            self.save_params()
+
+    # Save parameters
+    def save_params(self):
+        ## Save result
+        np.savez(
+            "stereo_tune.npz", window_size=self.window_size, pre_filter=self.pre_filter, unique=self.unique,
+            speckle_win=self.speckle_win, speckle_range=self.speckle_range, disp12=self.disp12
+        )
 
 
     # Load calibration parameters
@@ -97,11 +123,12 @@ class StereoSGBMTuner(object):
         disp = stereo.compute(frame_l, frame_r).astype(np.float32) / 16.0
         return (disp-min_disp)/num_disp
 
-    def start(self):
+    def start_tune(self):
 
+        print "Loading params"
         # Load calibration parameters
         maps = self.load_params()
-
+        self.params_loaded = True
         while(1):
 
             # Read single frame from camera
@@ -179,7 +206,7 @@ def main():
 
     ## Calibrate camera
     ct = StereoSGBMTuner(args.lcamera, args.rcamera, args.lowres)
-    ct.start()
+    ct.start_tune()
 
 
 
