@@ -40,8 +40,8 @@ with np.load('disortion_params.npz') as X:
     left_maps = X["left_maps"]
     right_maps = X["right_maps"]
 
-cap1 = cv2.VideoCapture(2)
-cap2 = cv2.VideoCapture(1)
+cap1 = cv2.VideoCapture(1)
+cap2 = cv2.VideoCapture(0)
 cap1.set(3, 320)
 cap1.set(4, 240)
 cap2.set(3, 320)
@@ -50,13 +50,7 @@ cap2.set(4, 240)
 
 cam_sources = [0,1]
 
-cv2.imshow('disparity',np.zeros((100,100)))
-cv2.createTrackbar('win_size', 'disparity', 3, 11, set_win_size)
-cv2.createTrackbar('prefilter', 'disparity', 0, 500, set_min_prefilter)
-cv2.createTrackbar('unique', 'disparity', 0, 30, set_uniq)
-cv2.createTrackbar('sws', 'disparity', 0, 200, set_sws)
-cv2.createTrackbar('sr', 'disparity', 0, 5, set_sr)
-cv2.createTrackbar('disp12', 'disparity', -1, 5, set_dmd)
+
 
 while(1):
 
