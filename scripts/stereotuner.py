@@ -198,8 +198,8 @@ def main():
     parser = argparse.ArgumentParser(description)
 
     ## Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video0")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     args = parser.parse_args()
