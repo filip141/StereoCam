@@ -32,11 +32,11 @@ class StereoSGBMTuner(threading.Thread):
         self.speckle_range = 0
         self.disp12 = -1
 
-        ## Stereo Camera object declaration
+        # Stereo Camera object declaration
         self.cam_r = cv2.VideoCapture(rc)
         self.cam_l = cv2.VideoCapture(lc)
 
-        ## For lack off usb bandwidth
+        # For lack off usb bandwidth
         if low_res:
             self.cam_r.set(CAMERA_WIDTH_PARAM, 320)
             self.cam_r.set(CAMERA_HEIGHT_PARAM, 240)
@@ -62,12 +62,11 @@ class StereoSGBMTuner(threading.Thread):
 
     # Save parameters
     def save_params(self):
-        ## Save result
+        # Save result
         np.savez(
             "stereo_tune.npz", window_size=self.window_size, pre_filter=self.pre_filter, unique=self.unique,
             speckle_win=self.speckle_win, speckle_range=self.speckle_range, disp12=self.disp12
         )
-
 
     # Load calibration parameters
     def load_params(self):
@@ -76,7 +75,7 @@ class StereoSGBMTuner(threading.Thread):
             left_maps = X["left_maps"]
             right_maps = X["right_maps"]
 
-        return (left_maps, right_maps)
+        return left_maps, right_maps
 
     # Initialize trackbar to tune params
     def init_trackbar(self):
@@ -93,13 +92,13 @@ class StereoSGBMTuner(threading.Thread):
         frame_l = stereoframe[0]
         frame_r = stereoframe[1]
 
-        ## Frame sizes
-        rows,cols,dim = frame_l.shape
+        # Frame sizes
+        rows, cols, dim = frame_l.shape
 
-        M = cv2.getRotationMatrix2D((cols/2,rows/2),-90,1)
-        frame_l = cv2.warpAffine(frame_l,M,(cols,rows))
-        frame_r = cv2.warpAffine(frame_r,M,(cols,rows))
-        return (frame_l, frame_r)
+        M = cv2.getRotationMatrix2D((cols / 2, rows / 2), -90, 1)
+        frame_l = cv2.warpAffine(frame_l, M, (cols, rows))
+        frame_r = cv2.warpAffine(frame_r, M, (cols, rows))
+        return frame_l, frame_r
 
     def computer_disparity(self, frames):
         # disparity range is tuned image pair
@@ -129,15 +128,12 @@ class StereoSGBMTuner(threading.Thread):
         # Load calibration parameters
         maps = self.load_params()
         self.params_loaded = True
-        while(1):
+        while True:
 
             # Read single frame from camera
             for i in range(0,5):
                 _, frame_l = self.cam_l.read()
                 _, frame_r = self.cam_r.read()
-
-            # Frame sizes
-            rows,cols,dim = frame_l.shape
 
             # Rotate 90 degrees
             frames = self.rotate90((frame_l, frame_r))
@@ -145,8 +141,8 @@ class StereoSGBMTuner(threading.Thread):
             # Convert type and remap
             rect_frames = [0,0]
             for src in self.cam_sources:
-                map1_conv = np.array([ [ [ coef for coef in y ] for y in x] for x in maps[src][0]])
-                map2_conv = np.array([ [ y for y in x] for x in maps[src][1]])
+                map1_conv = np.array([[[coef for coef in y] for y in x] for x in maps[src][0]])
+                map2_conv = np.array([[y for y in x] for x in maps[src][1]])
                 rect_frames[src] = cv2.remap(frames[src], map1_conv, map2_conv, cv2.INTER_LANCZOS4)
 
             # Compute disparity from pair of images
@@ -154,9 +150,9 @@ class StereoSGBMTuner(threading.Thread):
             frame_l = frames[0]
             frame_r = frames[1]
 
-            cv2.imshow('frame_left',frame_l)
-            cv2.imshow('frame_right',frame_r)
-            cv2.imshow('disparity',disp)
+            cv2.imshow('frame_left', frame_l)
+            cv2.imshow('frame_right', frame_r)
+            cv2.imshow('disparity', disp)
             k = cv2.waitKey(5) & 0xFF
             if k == 27:
                 break
@@ -169,7 +165,7 @@ class StereoSGBMTuner(threading.Thread):
 
     # Set pre filter parameter
     def set_pre_filter(self, arg):
-        self.set_pre_filter = arg
+        self.pre_filter = arg
 
     # Set unique ratio
     def set_unique(self, arg):
@@ -189,22 +185,22 @@ class StereoSGBMTuner(threading.Thread):
 
 def main():
 
-    ## Script description
+    # Script description
     description = 'Script from StereoCam package to tune stereo camera\n' \
                   'Using this script you can find parameters to tune your stereo camera\n' \
                   'Good luck ! :D \n'
 
-    ## Set command line arguments
+    # Set command line arguments
     parser = argparse.ArgumentParser(description)
 
-    ## Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
+    # Camera parameters
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video0")
     parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     args = parser.parse_args()
 
-    ## Calibrate camera
+    # Calibrate camera
     ct = StereoSGBMTuner(args.lcamera, args.rcamera, args.lowres)
     ct.start_tune()
 

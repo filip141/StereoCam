@@ -225,7 +225,7 @@ class CamCalibrate(object):
                     ## Save result
                     np.savez(
                             "disortion_params.npz", camera_mat_l=camera_mat_l, camera_mat_r=camera_mat_r, dist_l=dist_l,
-                             dist_r=dist_r, R=R, T=T, E=E,
+                             dist_r=dist_r, R=R, T=T, E=E, Q=Q,
                              F=F, left_maps=left_maps, right_maps=right_maps
                              )
 
@@ -257,8 +257,8 @@ def main():
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     ## Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video0")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video0")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
 
     args = parser.parse_args()
 

@@ -13,6 +13,7 @@ class Formatter(object):
 with np.load('disortion_params.npz') as X:
     left_maps = X["left_maps"]
     right_maps = X["right_maps"]
+    Q = X["Q"]
 
 with np.load('stereo_tune.npz') as X:
     window_size = X["window_size"]
@@ -31,7 +32,7 @@ with np.load('stereo_tune.npz') as X:
         # fullDP = False
     )
 
-cap1 = cv2.VideoCapture(2)
+cap1 = cv2.VideoCapture(0)
 cap2 = cv2.VideoCapture(1)
 cap1.set(3, 320)
 cap1.set(4, 240)
@@ -92,6 +93,11 @@ while(1):
 
     x,y,w,h = cv2.boundingRect(cnt)
     cv2.rectangle(rect_frames[0],(x,y),(x+w,y+h),(0,255,0),2)
+    c = max(cnts, key=cv2.contourArea)
+    M = cv2.moments(c)
+    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+    cv2.circle(rect_frames[0], center, 5, (0, 0, 255), -1)
+    print Q[2,3]*(1/Q[3,2])/disp[center]*1.0
     cv2.imshow("disparity",(disp-min_disp)/num_disp)
     cv2.imshow('tr',thresh1)
     cv2.imshow('frame_left',rect_frames[0])
