@@ -4,8 +4,10 @@
       <w>aval</w>
       <w>congratz</w>
       <w>disp</w>
+      <w>grayscale</w>
       <w>stereoframe</w>
       <w>trackbar</w>
+      <w>tresh</w>
     </words>
   </dictionary>
 </component>
