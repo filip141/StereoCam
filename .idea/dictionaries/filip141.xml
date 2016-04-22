@@ -6,11 +6,13 @@
       <w>conv</w>
       <w>disp</w>
       <w>grayscale</w>
+      <w>imgpoints</w>
       <w>lcamera</w>
       <w>leftcamera</w>
       <w>lowres</w>
       <w>nobj</w>
       <w>nobject</w>
+      <w>objpoints</w>
       <w>qmat</w>
       <w>rcamera</w>
       <w>rightcamera</w>

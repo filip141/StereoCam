@@ -133,15 +133,16 @@ class DistanceMeter(object):
         return mask_list
 
     # Find mask common value estimate
-    def find_disp_mean(self, cnt_points, disparity_map):
+    @staticmethod
+    def find_disp_mean(cnt_points, disparity_map):
         disp_map = disparity_map
         mask = np.zeros(disparity_map.shape, np.uint8)
         cv2.drawContours(mask, [cnt_points], contourIdx=-1, color=(255, 255, 255), thickness=cv2.FILLED)
         return cv2.mean(disp_map, mask=mask)[0]
 
-    def find_object(self, object_mask, stereoframe, disparity_map):
+    def find_object(self, object_mask, stereoframe, disparity_map, hor_param):
         # Find contour and convert to uint8
-        object_mask = (object_mask * 2.50).astype(np.uint8)
+        object_mask = (object_mask * hor_param).astype(np.uint8)
         contour_points = cv2.findContours(object_mask, cv2.RETR_EXTERNAL,
                                           cv2.CHAIN_APPROX_NONE)[-2]
         if contour_points:
@@ -164,7 +165,6 @@ class DistanceMeter(object):
                 # Draw on image
                 cv2.circle(stereoframe[0], center, 5, (0, 0, 255), -1)
                 obj_distance = int(self.qmat[2, 3] * (1 / self.qmat[3, 2]) / disp_comm * 1.0)
-                print obj_distance,self.qmat[2, 3], (1 / self.qmat[3, 2]), disp_comm * 1.0
                 cv2.putText(stereoframe[0], str(obj_distance), (x + w - 30, y + h), cv2.FONT_HERSHEY_SIMPLEX,
                             0.5, (0, 255, 0), 1, 1)
         return stereoframe
@@ -208,7 +208,7 @@ class DistanceMeter(object):
         return mask_list
 
     # Measure distance to object
-    def measure_dist(self):
+    def measure_dist(self, nobj, hor_param):
         # Read and rotate
         stereoframe = self.read_frames()
         stereoframe = self.rotate90(stereoframe)
@@ -216,11 +216,11 @@ class DistanceMeter(object):
         # Rectify and compute disparity map
         stereoframe = self.rectify_frames(stereoframe)
         disp = self.computer_stereo(stereoframe)
-        mask_list = self.find_mask(disp, 4)
+        mask_list = self.find_mask(disp, nobj)
         for object_mask in mask_list:
-            stereoframe = self.find_object(object_mask, stereoframe, disp)
+            stereoframe = self.find_object(object_mask, stereoframe, disp, hor_param)
         cv2.imshow("left", stereoframe[0])
-        cv2.imshow("rifgt", stereoframe[1])
+        cv2.imshow("right", stereoframe[1])
         try:
             cv2.imshow('tr1', mask_list[0])
         except:
@@ -231,9 +231,9 @@ class DistanceMeter(object):
             pass
 
     # Never ending loop
-    def camera_loop(self):
+    def camera_loop(self, nobj, hor_param):
         while True:
-            self.measure_dist()
+            self.measure_dist(nobj, hor_param)
             k = cv2.waitKey(5) & 0xFF
             if k == 27:
                 break
@@ -252,13 +252,21 @@ def main():
     # Camera parameters
     parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
     parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
+    parser.add_argument('-no', '--nobjects', dest='nobj', action='store', default="4")
+    parser.add_argument('-hp', '--horizont', dest='hor_param', action='store', default="5.1")
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     args = parser.parse_args()
+    try:
+        nobj_param = int(args.nobj)
+        hor_param = float(args.hor_param)
+    except Exception:
+        print "--nobjects and horizont parameters should be integer"
+        raise
 
     # Calibrate camera
     dm = DistanceMeter(args.lcamera, args.rcamera, args.lowres)
-    dm.camera_loop()
+    dm.camera_loop(nobj_param, hor_param)
 
 
 if __name__ == '__main__':
