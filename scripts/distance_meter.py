@@ -32,18 +32,19 @@ class DistanceMeter(object):
             self.cam_l.set(DistanceMeter.CAMERA_HEIGHT_PARAM, 240)
 
         # Initialize stereo
-        self.cam_sources = [0,1]
+        self.cam_sources = [0, 1]
         self.stereo = self.init_stereo()
         self.left_maps, self.right_maps, self.qmat = self.load_params()
 
     # Load calibration parameters
-    def load_params(self):
+    @staticmethod
+    def load_params():
         # Load previously saved data
         with np.load('disortion_params.npz') as X:
             left_maps = X["left_maps"]
             right_maps = X["right_maps"]
-            Q = X["Q"]
-        return left_maps, right_maps, Q
+            q_matrix = X["Q"]
+        return left_maps, right_maps, q_matrix
 
     # Initialize stereoSGBM algoritm
     def init_stereo(self):
@@ -60,8 +61,8 @@ class DistanceMeter(object):
                     speckleWindowSize=X["speckle_win"],
                     speckleRange=X["speckle_range"] * 16,
                     disp12MaxDiff=X["disp12"],
-                    P1=8 * 3 * window_size**2,
-                    P2=32 * 3 * window_size**2,
+                    P1=8 * 3 * window_size ** 2,
+                    P2=32 * 3 * window_size ** 2,
             )
         return stereo
 
@@ -73,7 +74,8 @@ class DistanceMeter(object):
         return frame_l, frame_r
 
     # Rotate stereo frame 90 degree
-    def rotate90(self, stereoframe):
+    @staticmethod
+    def rotate90(stereoframe):
 
         frame_l = stereoframe[0]
         frame_r = stereoframe[1]
@@ -105,45 +107,104 @@ class DistanceMeter(object):
         disp = self.stereo.compute(frame_l, frame_r).astype(np.float32) / 16.0
         return disp
 
-    # Method to find object mask, is possible to find n objects
-    def find_object(self, disparity_map, nobj):
+    @staticmethod
+    def disp_diff(disparity_map):
         old_num = 0
         num_disp = 112
         point_list = []
-        mask_list = []
+        disp_norm = disparity_map / num_disp
 
         # Diff calculation
         for step in range(99, 0, -1):
             new_tresh = step / 100.00
-            ret, disp_tresh = cv2.threshold(disparity_map / num_disp, new_tresh, 1.0, cv2.THRESH_BINARY)
+            ret, disp_tresh = cv2.threshold(disp_norm, new_tresh, 1.0, cv2.THRESH_BINARY)
             num = cv2.countNonZero(disp_tresh)
             point_list.append((num - old_num, new_tresh))
             old_num = num
+        return disp_norm, point_list
+
+    @staticmethod
+    def remove_prev_mask(mask_list):
+        obj_found = len(mask_list)
+        for obj_num in range(0, obj_found):
+            for obj_prev in range(obj_num - 1, -1, -1):
+                    bit_nor = cv2.bitwise_not(mask_list[obj_prev])
+                    mask_list[obj_num] = cv2.bitwise_and(mask_list[obj_num], bit_nor)
+        return mask_list
+
+    # Find mask common value estimate
+    def find_disp_mean(self, cnt_points, disparity_map):
+        disp_map = disparity_map
+        mask = np.zeros(disparity_map.shape, np.uint8)
+        cv2.drawContours(mask, [cnt_points], contourIdx=-1, color=(255, 255, 255), thickness=cv2.FILLED)
+        return cv2.mean(disp_map, mask=mask)[0]
+
+    def find_object(self, object_mask, stereoframe, disparity_map):
+        # Find contour and convert to uint8
+        object_mask = (object_mask * 2.50).astype(np.uint8)
+        contour_points = cv2.findContours(object_mask, cv2.RETR_EXTERNAL,
+                                          cv2.CHAIN_APPROX_NONE)[-2]
+        if contour_points:
+            # Calculate moments
+            c = max(contour_points, key=cv2.contourArea)
+            obj_moments = cv2.moments(c)
+            center = (
+                int(obj_moments["m10"] / obj_moments["m00"]),
+                int(obj_moments["m01"] / obj_moments["m00"])
+            )
+            if center < disparity_map.shape:
+                areas = [cv2.contourArea(c) for c in contour_points]
+                max_index = np.argmax(areas)
+                cnt = contour_points[max_index]
+                disp_comm = self.find_disp_mean(cnt, disparity_map)
+                x, y, w, h = cv2.boundingRect(cnt)
+                # Show rectangle
+                cv2.rectangle(stereoframe[0], (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+                # Draw on image
+                cv2.circle(stereoframe[0], center, 5, (0, 0, 255), -1)
+                obj_distance = int(self.qmat[2, 3] * (1 / self.qmat[3, 2]) / disp_comm * 1.0)
+                print obj_distance,self.qmat[2, 3], (1 / self.qmat[3, 2]), disp_comm * 1.0
+                cv2.putText(stereoframe[0], str(obj_distance), (x + w - 30, y + h), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (0, 255, 0), 1, 1)
+        return stereoframe
+
+    # Method to find object mask, is possible to find n objects
+    def find_mask(self, disparity_map, nobj):
+
+        mask_list = []
+
+        # Find maxima's
+        disp_norm, point_list = self.disp_diff(disparity_map)
         pixels_dif = np.array([x[0] for x in point_list])
-        pixels_dif[pixels_dif < 0.45*max(pixels_dif)] = 0
+        pixels_dif[pixels_dif < 0.0325 * disparity_map.size] = 0
         peak_max_ind = argrelextrema(pixels_dif, np.greater)[0].tolist()
         peaks_max_val = [point_list[i][0] for i in peak_max_ind]
 
         # Check nobj argument
         if nobj > len(peak_max_ind):
-            print "nobject argument out of range, casted to list length"
             nobj = len(peak_max_ind)
 
         peak_max_ind = peak_max_ind[:nobj]
         peaks_max_val = peaks_max_val[:nobj]
 
-        # Find peak size
         for peak_ind, val in zip(peak_max_ind, peaks_max_val):
             search_left_ind = peak_ind
             search_right_ind = peak_ind
-            while pixels_dif[search_left_ind] > 0.10*val:
+            # Find peak edges
+            while pixels_dif[search_left_ind] > 0.10 * val:
                 search_left_ind -= 1
-            while pixels_dif[search_right_ind] > 0.10*val:
+                if search_left_ind < 0:
+                    break
+            while pixels_dif[search_right_ind] > 0.10 * val:
                 search_right_ind += 1
-            _, tresh_temp = cv2.threshold(disparity_map / num_disp, point_list[search_right_ind][1],
-                                          point_list[search_left_ind][1], cv2.THRESH_BINARY
-                                          )
-            mask_list.append(tresh_temp)
+                if search_right_ind > len(pixels_dif) - 1:
+                    break
+            # Extract mask
+            mask = cv2.inRange(disp_norm, point_list[search_right_ind][1], point_list[search_left_ind][1])
+            tresh_mask = cv2.bitwise_and(disp_norm, disp_norm, mask=mask)
+            mask_list.append(tresh_mask)
+        mask_list = self.remove_prev_mask(mask_list)
         return mask_list
 
     # Measure distance to object
@@ -155,8 +216,19 @@ class DistanceMeter(object):
         # Rectify and compute disparity map
         stereoframe = self.rectify_frames(stereoframe)
         disp = self.computer_stereo(stereoframe)
-        mask_list = self.find_object(disp, 1)
-        cv2.imshow("mask", mask_list[0])
+        mask_list = self.find_mask(disp, 4)
+        for object_mask in mask_list:
+            stereoframe = self.find_object(object_mask, stereoframe, disp)
+        cv2.imshow("left", stereoframe[0])
+        cv2.imshow("rifgt", stereoframe[1])
+        try:
+            cv2.imshow('tr1', mask_list[0])
+        except:
+            pass
+        try:
+            cv2.imshow('tr2', mask_list[1])
+        except:
+            pass
 
     # Never ending loop
     def camera_loop(self):
@@ -178,8 +250,8 @@ def main():
     parser = argparse.ArgumentParser(description)
 
     # Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video2")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     args = parser.parse_args()

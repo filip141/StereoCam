@@ -6,6 +6,7 @@ import numpy as np
 CAMERA_WIDTH_PARAM = 3
 CAMERA_HEIGHT_PARAM = 4
 
+
 class StereoSGBMTuner(threading.Thread):
     '''
     StereoTuner for stereoSGBM OpenCV method
@@ -20,7 +21,7 @@ class StereoSGBMTuner(threading.Thread):
             raise
 
         # list of owned cameras
-        self.cam_sources = [0,1]
+        self.cam_sources = [0, 1]
         self.low_res = low_res
         self.params_loaded = False
 
@@ -64,12 +65,13 @@ class StereoSGBMTuner(threading.Thread):
     def save_params(self):
         # Save result
         np.savez(
-            "stereo_tune.npz", window_size=self.window_size, pre_filter=self.pre_filter, unique=self.unique,
-            speckle_win=self.speckle_win, speckle_range=self.speckle_range, disp12=self.disp12
+                "stereo_tune.npz", window_size=self.window_size, pre_filter=self.pre_filter, unique=self.unique,
+                speckle_win=self.speckle_win, speckle_range=self.speckle_range, disp12=self.disp12
         )
 
     # Load calibration parameters
-    def load_params(self):
+    @staticmethod
+    def load_params():
         # Load previously saved data
         with np.load('disortion_params.npz') as X:
             left_maps = X["left_maps"]
@@ -79,7 +81,7 @@ class StereoSGBMTuner(threading.Thread):
 
     # Initialize trackbar to tune params
     def init_trackbar(self):
-        cv2.imshow('disparity',np.zeros((100,100)))
+        cv2.imshow('disparity', np.zeros((100, 100)))
         cv2.createTrackbar('blockSize', 'disparity', 3, 11, self.set_window_size)
         cv2.createTrackbar('preFilterCap', 'disparity', 0, 500, self.set_pre_filter)
         cv2.createTrackbar('uniquenessRatio', 'disparity', 0, 30, self.set_unique)
@@ -87,7 +89,8 @@ class StereoSGBMTuner(threading.Thread):
         cv2.createTrackbar('speckleRange', 'disparity', 0, 5, self.set_speckle_range)
         cv2.createTrackbar('disp12MaxDiff', 'disparity', -1, 5, self.set_disp12_max_diff)
 
-    def rotate90(self, stereoframe):
+    @staticmethod
+    def rotate90(stereoframe):
 
         frame_l = stereoframe[0]
         frame_r = stereoframe[1]
@@ -95,32 +98,32 @@ class StereoSGBMTuner(threading.Thread):
         # Frame sizes
         rows, cols, dim = frame_l.shape
 
-        M = cv2.getRotationMatrix2D((cols / 2, rows / 2), -90, 1)
-        frame_l = cv2.warpAffine(frame_l, M, (cols, rows))
-        frame_r = cv2.warpAffine(frame_r, M, (cols, rows))
+        rot_matrix = cv2.getRotationMatrix2D((cols / 2, rows / 2), -90, 1)
+        frame_l = cv2.warpAffine(frame_l, rot_matrix, (cols, rows))
+        frame_r = cv2.warpAffine(frame_r, rot_matrix, (cols, rows))
         return frame_l, frame_r
 
     def computer_disparity(self, frames):
         # disparity range is tuned image pair
         window_size = self.window_size
         min_disp = 0
-        num_disp = 112-min_disp
-        stereo = cv2.StereoSGBM_create(minDisparity = min_disp,
-            preFilterCap = self.pre_filter,
-            numDisparities = num_disp,
-            blockSize = window_size,
-            uniquenessRatio = self.unique,
-            speckleWindowSize = self.speckle_win,
-            speckleRange = self.speckle_range*16,
-            disp12MaxDiff = self.disp12,
-            P1 = 8*3*window_size**2,
-            P2 = 32*3*window_size**2,
-            # fullDP = False
-        )
+        num_disp = 112 - min_disp
+        stereo = cv2.StereoSGBM_create(minDisparity=min_disp,
+                                       preFilterCap=self.pre_filter,
+                                       numDisparities=num_disp,
+                                       blockSize=window_size,
+                                       uniquenessRatio=self.unique,
+                                       speckleWindowSize=self.speckle_win,
+                                       speckleRange=self.speckle_range * 16,
+                                       disp12MaxDiff=self.disp12,
+                                       P1=8 * 3 * window_size ** 2,
+                                       P2=32 * 3 * window_size ** 2,
+                                       # fullDP = False
+                                       )
         frame_l = cv2.cvtColor(frames[0], cv2.COLOR_BGR2GRAY)
         frame_r = cv2.cvtColor(frames[1], cv2.COLOR_BGR2GRAY)
         disp = stereo.compute(frame_l, frame_r).astype(np.float32) / 16.0
-        return (disp-min_disp)/num_disp
+        return (disp - min_disp) / num_disp
 
     def start_tune(self):
 
@@ -131,7 +134,7 @@ class StereoSGBMTuner(threading.Thread):
         while True:
 
             # Read single frame from camera
-            for i in range(0,5):
+            for i in range(0, 5):
                 _, frame_l = self.cam_l.read()
                 _, frame_r = self.cam_r.read()
 
@@ -139,7 +142,7 @@ class StereoSGBMTuner(threading.Thread):
             frames = self.rotate90((frame_l, frame_r))
 
             # Convert type and remap
-            rect_frames = [0,0]
+            rect_frames = [0, 0]
             for src in self.cam_sources:
                 map1_conv = np.array([[[coef for coef in y] for y in x] for x in maps[src][0]])
                 map2_conv = np.array([[y for y in x] for x in maps[src][1]])
@@ -185,7 +188,6 @@ class StereoSGBMTuner(threading.Thread):
 
 
 def main():
-
     # Script description
     description = 'Script from StereoCam package to tune stereo camera\n' \
                   'Using this script you can find parameters to tune your stereo camera\n' \
@@ -195,8 +197,8 @@ def main():
     parser = argparse.ArgumentParser(description)
 
     # Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video2")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     args = parser.parse_args()

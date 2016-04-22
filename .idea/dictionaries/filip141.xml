@@ -3,11 +3,21 @@
     <words>
       <w>aval</w>
       <w>congratz</w>
+      <w>conv</w>
       <w>disp</w>
       <w>grayscale</w>
+      <w>lcamera</w>
+      <w>leftcamera</w>
+      <w>lowres</w>
+      <w>nobj</w>
+      <w>nobject</w>
+      <w>qmat</w>
+      <w>rcamera</w>
+      <w>rightcamera</w>
       <w>stereoframe</w>
       <w>trackbar</w>
       <w>tresh</w>
+      <w>uint</w>
     </words>
   </dictionary>
 </component>
