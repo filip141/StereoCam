@@ -222,7 +222,7 @@ class CamCalibrate(object):
 
                     # Save result
                     np.savez(
-                            "disortion_params.npz", camera_mat_l=camera_mat_l,
+                            "../data/disortion_params.npz", camera_mat_l=camera_mat_l,
                             camera_mat_r=camera_mat_r, dist_l=dist_l,
                             dist_r=dist_r, R=R, T=T, E=E, Q=Q,
                             F=F, left_maps=left_maps, right_maps=right_maps

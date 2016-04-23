@@ -40,7 +40,7 @@ class DistanceMeter(object):
     @staticmethod
     def load_params():
         # Load previously saved data
-        with np.load('disortion_params.npz') as X:
+        with np.load('../data/disortion_params.npz') as X:
             left_maps = X["left_maps"]
             right_maps = X["right_maps"]
             q_matrix = X["Q"]
@@ -48,7 +48,7 @@ class DistanceMeter(object):
 
     # Initialize stereoSGBM algoritm
     def init_stereo(self):
-        with np.load('stereo_tune.npz') as X:
+        with np.load('../data/stereo_tune.npz') as X:
             window_size = X["window_size"]
             min_disp = 0
             num_disp = 112 - min_disp
@@ -193,13 +193,13 @@ class DistanceMeter(object):
             search_right_ind = peak_ind
             # Find peak edges
             while pixels_dif[search_left_ind] > 0.10 * val:
+                if search_left_ind - 1 < 0:
+                    break
                 search_left_ind -= 1
-                if search_left_ind < 0:
-                    break
             while pixels_dif[search_right_ind] > 0.10 * val:
-                search_right_ind += 1
-                if search_right_ind > len(pixels_dif) - 1:
+                if search_right_ind + 1 > len(pixels_dif) - 1:
                     break
+                search_right_ind += 1
             # Extract mask
             mask = cv2.inRange(disp_norm, point_list[search_right_ind][1], point_list[search_left_ind][1])
             tresh_mask = cv2.bitwise_and(disp_norm, disp_norm, mask=mask)
@@ -250,8 +250,8 @@ def main():
     parser = argparse.ArgumentParser(description)
 
     # Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video2")
     parser.add_argument('-no', '--nobjects', dest='nobj', action='store', default="4")
     parser.add_argument('-hp', '--horizont', dest='hor_param', action='store', default="5.1")
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)

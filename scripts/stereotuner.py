@@ -65,7 +65,7 @@ class StereoSGBMTuner(threading.Thread):
     def save_params(self):
         # Save result
         np.savez(
-                "stereo_tune.npz", window_size=self.window_size, pre_filter=self.pre_filter, unique=self.unique,
+                "../data/stereo_tune.npz", window_size=self.window_size, pre_filter=self.pre_filter, unique=self.unique,
                 speckle_win=self.speckle_win, speckle_range=self.speckle_range, disp12=self.disp12
         )
 
@@ -73,7 +73,7 @@ class StereoSGBMTuner(threading.Thread):
     @staticmethod
     def load_params():
         # Load previously saved data
-        with np.load('disortion_params.npz') as X:
+        with np.load('../data/disortion_params.npz') as X:
             left_maps = X["left_maps"]
             right_maps = X["right_maps"]
 
