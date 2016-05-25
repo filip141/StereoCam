@@ -1,0 +1,11 @@
+.center-text {
+  padding: 3rem 1.5rem;
+  background-color: rgb(230, 230, 255);
+  text-align: center;
+  height: 70%;
+}
+
+#bg {
+    margin-top: 1rem;
+}
+

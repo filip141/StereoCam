@@ -1,0 +1,68 @@
+<html>
+  <head>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-theme.min.css') }}">
+    <!-- Custom styles for this template -->
+    <link href="{{ url_for('static', filename='css/template.css') }}" rel="stylesheet">
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="{{ url_for('static', filename='js/jquery-2.2.4.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <title>Video Streaming Demonstration</title>
+  </head>
+  <body>
+  <nav class="navbar navbar-inverse navbar-static-top">
+	<div class = "container">
+		<div class = "row">
+			<button class = "navbar-toggle" data-toggle = "collapse" data-target = ".navHeaderCollapse" >
+				<span class = "icon-bar"></span>
+				<span class = "icon-bar"></span>
+				<span class = "icon-bar"></span>
+			</button>
+			<div class = "collapse navbar-collapse navHeaderCollapse">
+              <ul class = "nav navbar-nav navbar-right">
+                  <li class = "active"><a href = "index.html">Strona Główna</a></li>
+                  <li><a href = "#">Projekt</a></li>
+                  <li class = "dropdown">
+                      <a href = "#" class = "dropdown-toggle" data-toggle = "dropdown" >Social Media</a>
+                      <ul class = "dropdown-menu">
+                          <li><a href="#">Facebook</a></li>
+                          <li><a href="#">Instagram</a></li>
+                      </ul>
+                  </li>
+                  <li class = "dropdown-2">
+                    <a href = "#" class = "dropdown-toggle" data-toggle = "dropdown" >Kontakt</a>
+                    <ul class = "dropdown-menu">
+                      <li><a>Kontakt<br>e-mail: filip141@gmail.com<br>Filip Bachura<i> Autor</i><br>tel: 667183853</a></li>
+                    </ul>
+                  </li>
+              </ul>
+  			</div>
+  		</div>
+  	  </div>
+  	</nav>
+    {% block video %}
+    <div class="container">
+        <div class="center-text col-md-6">
+          <h2><b>Odległość od obiektu: </b></h2>
+          <img id="bg" src="{{ url_for('video_feed') }}">
+        </div>
+        <div class="col-md-6">
+          <h2><b>Znalezione Obiekty: </b></h2>
+        <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Odległość</th>
+                <th>Kordynaty</th>
+              </tr>
+            </thead>
+            <tbody id="objects">
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% endblock %}
+  </body>
+</html>

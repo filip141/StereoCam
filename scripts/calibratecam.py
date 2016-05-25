@@ -179,11 +179,11 @@ class CamCalibrate(object):
                         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l = cv2.calibrateCamera(self.objpoints,
                                                                                      self.imgpoints_l,
                                                                                      gray_l.shape[::-1],
-                                                                                     None,None)
+                                                                                     None, None)
                         ret_r, mtx_r, dist_r, rvecs_r, tvecs_r = cv2.calibrateCamera(self.objpoints,
                                                                                      self.imgpoints_r,
                                                                                      gray_r.shape[::-1],
-                                                                                    None,None)
+                                                                                    None, None)
 
                         print "Calibration Error for left, right camera : " + str(ret_l) + ", " + str(ret_r)
 
@@ -219,13 +219,13 @@ class CamCalibrate(object):
                         )
                         left_maps = cv2.initUndistortRectifyMap(camera_mat_l, dist_l, R1, P1, gray_l.shape[::-1], cv2.CV_16SC2)
                         right_maps = cv2.initUndistortRectifyMap(camera_mat_r, dist_r, R2, P2, gray_l.shape[::-1], cv2.CV_16SC2)
-
                     # Save result
                     np.savez(
                             "../data/disortion_params.npz", camera_mat_l=camera_mat_l,
                             camera_mat_r=camera_mat_r, dist_l=dist_l,
                             dist_r=dist_r, R=R, T=T, E=E, Q=Q,
-                            F=F, left_maps=left_maps, right_maps=right_maps
+                            F=F, left_maps_1=left_maps[0], left_maps_2=left_maps[1],
+                            right_maps_1=right_maps[0], right_maps_2=right_maps[1]
                     )
 
                     undisorted = True
@@ -254,8 +254,8 @@ def main():
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     # Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video2")
 
     args = parser.parse_args()
 

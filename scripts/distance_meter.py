@@ -1,4 +1,5 @@
 import cv2
+import sys
 import argparse
 import numpy as np
 from scipy.signal import argrelextrema
@@ -41,10 +42,12 @@ class DistanceMeter(object):
     def load_params():
         # Load previously saved data
         with np.load('../data/disortion_params.npz') as X:
-            left_maps = X["left_maps"]
-            right_maps = X["right_maps"]
+            left_maps_1 = X["left_maps_1"]
+            right_maps_1 = X["right_maps_1"]
+            left_maps_2 = X["left_maps_2"]
+            right_maps_2 = X["right_maps_2"]
             q_matrix = X["Q"]
-        return left_maps, right_maps, q_matrix
+        return (left_maps_1, left_maps_2), (right_maps_1, right_maps_2), q_matrix
 
     # Initialize stereoSGBM algoritm
     def init_stereo(self):
@@ -167,7 +170,8 @@ class DistanceMeter(object):
                 obj_distance = int(self.qmat[2, 3] * (1 / self.qmat[3, 2]) / disp_comm * 1.0)
                 cv2.putText(stereoframe[0], str(obj_distance), (x + w - 30, y + h), cv2.FONT_HERSHEY_SIMPLEX,
                             0.5, (0, 255, 0), 1, 1)
-        return stereoframe
+                return stereoframe, obj_distance, center
+        return stereoframe, None, None
 
     # Method to find object mask, is possible to find n objects
     def find_mask(self, disparity_map, nobj):
@@ -209,6 +213,7 @@ class DistanceMeter(object):
 
     # Measure distance to object
     def measure_dist(self, nobj, hor_param):
+        object_params = []
         # Read and rotate
         stereoframe = self.read_frames()
         stereoframe = self.rotate90(stereoframe)
@@ -218,22 +223,17 @@ class DistanceMeter(object):
         disp = self.computer_stereo(stereoframe)
         mask_list = self.find_mask(disp, nobj)
         for object_mask in mask_list:
-            stereoframe = self.find_object(object_mask, stereoframe, disp, hor_param)
-        cv2.imshow("left", stereoframe[0])
-        cv2.imshow("right", stereoframe[1])
-        try:
-            cv2.imshow('tr1', mask_list[0])
-        except:
-            pass
-        try:
-            cv2.imshow('tr2', mask_list[1])
-        except:
-            pass
+            stereoframe, obj_dist, obj_center = self.find_object(object_mask, stereoframe, disp, hor_param)
+            if obj_dist:
+                object_params.append((obj_dist, obj_center))
+        return stereoframe, object_params
 
     # Never ending loop
     def camera_loop(self, nobj, hor_param):
         while True:
-            self.measure_dist(nobj, hor_param)
+            stereoframe, _ = self.measure_dist(nobj, hor_param)
+            cv2.imshow("left", stereoframe[0])
+            cv2.imshow("right", stereoframe[1])
             k = cv2.waitKey(5) & 0xFF
             if k == 27:
                 break
@@ -264,7 +264,7 @@ def main():
         print "--nobjects and horizont parameters should be integer"
         raise
 
-    # Calibrate camera
+    # Distance camera
     dm = DistanceMeter(args.lcamera, args.rcamera, args.lowres)
     dm.camera_loop(nobj_param, hor_param)
 

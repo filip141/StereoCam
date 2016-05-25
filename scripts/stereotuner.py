@@ -74,10 +74,12 @@ class StereoSGBMTuner(threading.Thread):
     def load_params():
         # Load previously saved data
         with np.load('../data/disortion_params.npz') as X:
-            left_maps = X["left_maps"]
-            right_maps = X["right_maps"]
+            left_maps_1 = X["left_maps_1"]
+            right_maps_1 = X["right_maps_1"]
+            left_maps_2 = X["left_maps_2"]
+            right_maps_2 = X["right_maps_2"]
 
-        return left_maps, right_maps
+        return (left_maps_1, left_maps_2), (right_maps_1, right_maps_2)
 
     # Initialize trackbar to tune params
     def init_trackbar(self):
@@ -197,8 +199,8 @@ def main():
     parser = argparse.ArgumentParser(description)
 
     # Camera parameters
-    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video2")
-    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video1")
+    parser.add_argument('-lc', '--leftcamera', dest='lcamera', action='store', default="/dev/video1")
+    parser.add_argument('-rc', '--rightcamera', dest='rcamera', action='store', default="/dev/video2")
     parser.add_argument('--lowres', dest='lowres', action="store_true", default=True)
 
     args = parser.parse_args()
