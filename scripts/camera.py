@@ -13,10 +13,16 @@ class VideoCamera(object):
 
 
 class DistanceCamera(object):
-    def __init__(self):
-        self.video = DistanceMeter("/dev/video2", "/dev/video3", True)
+    def __init__(self, cam_1, cam_2):
+        self.video = DistanceMeter(cam_1, cam_2, True)
 
-    def get_frame(self):
-        stereoframe, objects = self.video.measure_dist(4, 5.1)
+    def __del__(self):
+        del self.video
+
+    def get_frame(self, n_obj, h_param):
+        try:
+            stereoframe, objects = self.video.measure_dist(n_obj, h_param)
+        except ValueError:
+            return None, []
         ret, jpeg = cv2.imencode('.jpg', stereoframe[0])
         return jpeg.tobytes(), objects

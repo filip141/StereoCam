@@ -37,6 +37,10 @@ class DistanceMeter(object):
         self.stereo = self.init_stereo()
         self.left_maps, self.right_maps, self.qmat = self.load_params()
 
+    def __del__(self):
+        self.cam_l.release()
+        self.cam_r.release()
+
     # Load calibration parameters
     @staticmethod
     def load_params():
@@ -50,7 +54,8 @@ class DistanceMeter(object):
         return (left_maps_1, left_maps_2), (right_maps_1, right_maps_2), q_matrix
 
     # Initialize stereoSGBM algoritm
-    def init_stereo(self):
+    @staticmethod
+    def init_stereo():
         with np.load('../data/stereo_tune.npz') as X:
             window_size = X["window_size"]
             min_disp = 0
@@ -216,6 +221,8 @@ class DistanceMeter(object):
         object_params = []
         # Read and rotate
         stereoframe = self.read_frames()
+        if (stereoframe[0] is None) or (stereoframe[1] is None):
+            raise ValueError("Probably wrong camera interface")
         stereoframe = self.rotate90(stereoframe)
 
         # Rectify and compute disparity map
