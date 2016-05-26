@@ -70,20 +70,18 @@ def get_objects():
 def gen(camera, nobj, hparam):
     while True:
         frame, objects = camera.get_frame(nobj, hparam)
-        if not frame:
-            continue
         objects_table(objects)
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
 
-#
+
 @app.route('/video_feed')
 def video_feed():
     mutex_param.acquire()
     global cam_one, cam_two, n_obj, h_param, cam_obj
     if cam_obj:
         del cam_obj
-        time.sleep(4)
+        time.sleep(5)
     cam_obj = DistanceCamera(cam_one, cam_two)
     return_param = Response(gen(cam_obj, n_obj, h_param),
                     mimetype='multipart/x-mixed-replace; boundary=frame')

@@ -23,6 +23,9 @@ class DistanceCamera(object):
         try:
             stereoframe, objects = self.video.measure_dist(n_obj, h_param)
         except ValueError:
-            return None, []
+            objects = []
+            cam_img = cv2.imread("../static/img/there-is-no-connected-camera-mac.jpg", 0)
+            cam_img = cv2.resize(cam_img, (320, 240))
+            stereoframe = (cam_img, cam_img)
         ret, jpeg = cv2.imencode('.jpg', stereoframe[0])
         return jpeg.tobytes(), objects
